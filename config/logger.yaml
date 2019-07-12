@@ -1,4 +1,0 @@
-level: "TRACE"
-remote_log: true
-file_path_enabled: true
-colors: true
