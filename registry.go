@@ -1,17 +1,24 @@
-package schema_registry
+package schemaregistry
 
 import (
 	"fmt"
-	"github.com/datamountaineer/schema-registry"
-	"github.com/pickme-go/log"
 	"sync"
+
+	schema_registry "github.com/landoop/schema-registry"
+	"github.com/pickme-go/log"
 )
 
+// Version is the type to hold default register vrsion options
 type Version int
 
-const VersionLatest Version = -1
-const VersionAll Version = -2
+const (
+	//VersionLatest constant hold the flag to register the latest version of the subject
+	VersionLatest Version = -1
+	//VersionAll constant hold the flag to register all the versions of the subject
+	VersionAll Version = -2
+)
 
+// String returns the registed version type
 func (v Version) String() string {
 
 	if v == VersionLatest {
@@ -27,6 +34,7 @@ func (v Version) String() string {
 
 type jsonDecoder func(data []byte) (v interface{}, err error)
 
+//Subject holds the Schema information of the registered subject
 type Subject struct {
 	Schema      string      `json:"subject"` // The actual AVRO subject
 	Subject     string      `json:"subject"` // Subject where the subject is registered for
@@ -42,17 +50,21 @@ type options struct {
 	logger           log.PrefixedLogger
 }
 
+// Registry type holds schema registry details
 type Registry struct {
 	schemas map[string]map[int]*Encoder // subject/version/encoder
 	idMap   map[int]*Encoder
-	client  *schemaregistry.Client
+	client  *schema_registry.Client
 	mu      *sync.RWMutex
 	options *options
 	logger  log.PrefixedLogger
 }
 
+//Option is a type to host NewRegistry configurations
 type Option func(*options)
 
+// WithBackgroundSync returns a Configurations to create a NewRegistry with kafka dynamic schema sync.
+// function required slice of kafka bootstrapServers and schema storageTopic as inputs
 func WithBackgroundSync(bootstrapServers []string, storageTopic string) Option {
 	return func(options *options) {
 		options.bootstrapServers = bootstrapServers
@@ -61,12 +73,14 @@ func WithBackgroundSync(bootstrapServers []string, storageTopic string) Option {
 	}
 }
 
+//WithLogger returns a Configurations to create a NewRegistry with given PrefixedLogger
 func WithLogger(logger log.PrefixedLogger) Option {
 	return func(options *options) {
 		options.logger = logger
 	}
 }
 
+// NewRegistry returns pointer to connected registry with given options or error if it's unable to connect
 func NewRegistry(url string, opts ...Option) (*Registry, error) {
 
 	options := new(options)
@@ -75,10 +89,10 @@ func NewRegistry(url string, opts ...Option) (*Registry, error) {
 	}
 
 	if options.logger == nil {
-		options.logger = noopLogger{}
+		options.logger = log.NewPrefixedNoopLogger()
 	}
 
-	c, err := schemaregistry.NewClient(url)
+	c, err := schema_registry.NewClient(url)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +109,7 @@ func NewRegistry(url string, opts ...Option) (*Registry, error) {
 	return r, nil
 }
 
+// Register registers the given subject, version and JSON value decoder to the Registry
 func (r *Registry) Register(subject string, version int, decoder jsonDecoder) error {
 	if _, ok := r.schemas[subject]; ok {
 		if _, ok := r.schemas[subject][version]; ok {
@@ -115,7 +130,7 @@ func (r *Registry) Register(subject string, version int, decoder jsonDecoder) er
 		return nil
 	}
 
-	var clientSub schemaregistry.Schema
+	var clientSub schema_registry.Schema
 	if version == int(VersionLatest) {
 		sub, err := r.client.GetLatestSchema(subject)
 		if err != nil {
@@ -157,6 +172,9 @@ func (r *Registry) Register(subject string, version int, decoder jsonDecoder) er
 	return nil
 }
 
+// Sync function start the background schema sync from kafka topic
+//
+// Newly Creted Schemas will register in background and aplication doesnot require any restart
 func (r *Registry) Sync() error {
 	if r.options.backGroundSync {
 		bgSync, err := newSync(r.options.bootstrapServers, r.options.storageTopic, r)
@@ -172,6 +190,7 @@ func (r *Registry) Sync() error {
 	return nil
 }
 
+// WithSchema return the specific encoder which registered at the initialization under the subject and version
 func (r *Registry) WithSchema(subject string, version int) *Encoder {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -184,6 +203,7 @@ func (r *Registry) WithSchema(subject string, version int) *Encoder {
 	return e
 }
 
+// WithLatestSchema returns the latest event version encoder registered under given subject
 func (r *Registry) WithLatestSchema(subject string) *Encoder {
 	r.mu.Lock()
 	defer r.mu.Unlock()

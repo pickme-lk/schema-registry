@@ -8,16 +8,17 @@
 package main
 
 import (
-	"github.com/pickme-go/log"
-	"github.com/pickme-go/schema-registry"
 	"time"
+
+	"github.com/pickme-go/log"
+	schemaregistry "github.com/pickme-go/schema-registry"
 )
 
 func main() {
 
 	// init a new schema registry instance and connect
-	registry, err := schema_registry.NewRegistry(`http://localhost:8001/`,
-		schema_registry.WithBackgroundSync([]string{`localhost:9092`}, `__schemas`))
+	registry, err := schemaregistry.NewRegistry(`localhost:8089/`,
+		schemaregistry.WithBackgroundSync([]string{`localhost:9092`}, `__schemas`))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -31,6 +32,8 @@ func main() {
 	if err = registry.Sync(); err != nil {
 		log.Fatal(err)
 	}
+
+	log.Info(`your event is successfully registered`)
 
 	time.Sleep(10 * time.Minute)
 }

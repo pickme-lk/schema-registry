@@ -1,13 +1,14 @@
-package schema_registry
+package schemaregistry
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sort"
+
 	"github.com/Shopify/sarama"
 	"github.com/olekukonko/tablewriter"
 	"github.com/pickme-go/k-stream/consumer"
-	"sort"
 )
 
 type backgroundSync struct {
@@ -54,7 +55,7 @@ func newSync(bootstrapServers []string, storageTopic string, registry *Registry)
 func (s *backgroundSync) start() error {
 
 	s.registry.logger.Info(`schema-registry.sync`, `background sync started...`)
-	pConsumer, err := s.consumer.Consume(s.storageTopic, 0, sarama.OffsetOldest)
+	pConsumer, err := s.consumer.Consume(s.storageTopic, 0, consumer.Offset(sarama.OffsetOldest))
 	if err != nil {
 		return err
 	}
