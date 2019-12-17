@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	schema_registry "github.com/landoop/schema-registry"
+	registry "github.com/landoop/schema-registry"
 	"github.com/pickme-go/log"
 )
 
@@ -47,17 +47,17 @@ type options struct {
 	backGroundSync   bool
 	bootstrapServers []string
 	storageTopic     string
-	logger           log.PrefixedLogger
+	logger           log.Logger
 }
 
 // Registry type holds schema registry details
 type Registry struct {
 	schemas map[string]map[int]*Encoder // subject/version/encoder
 	idMap   map[int]*Encoder
-	client  *schema_registry.Client
+	client  *registry.Client
 	mu      *sync.RWMutex
 	options *options
-	logger  log.PrefixedLogger
+	logger  log.Logger
 }
 
 //Option is a type to host NewRegistry configurations
@@ -74,7 +74,7 @@ func WithBackgroundSync(bootstrapServers []string, storageTopic string) Option {
 }
 
 //WithLogger returns a Configurations to create a NewRegistry with given PrefixedLogger
-func WithLogger(logger log.PrefixedLogger) Option {
+func WithLogger(logger log.Logger) Option {
 	return func(options *options) {
 		options.logger = logger
 	}
@@ -89,10 +89,10 @@ func NewRegistry(url string, opts ...Option) (*Registry, error) {
 	}
 
 	if options.logger == nil {
-		options.logger = log.NewPrefixedNoopLogger()
+		options.logger = log.NewNoopLogger()
 	}
 
-	c, err := schema_registry.NewClient(url)
+	c, err := registry.NewClient(url)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (r *Registry) Register(subject string, version int, decoder jsonDecoder) er
 		return nil
 	}
 
-	var clientSub schema_registry.Schema
+	var clientSub registry.Schema
 	if version == int(VersionLatest) {
 		sub, err := r.client.GetLatestSchema(subject)
 		if err != nil {
@@ -174,19 +174,19 @@ func (r *Registry) Register(subject string, version int, decoder jsonDecoder) er
 
 // Sync function start the background schema sync from kafka topic
 //
-// Newly Creted Schemas will register in background and aplication doesnot require any restart
+// Newly Created Schemas will register in background and application does not require any restart
 func (r *Registry) Sync() error {
-	if r.options.backGroundSync {
-		bgSync, err := newSync(r.options.bootstrapServers, r.options.storageTopic, r)
-		if err != nil {
-			return err
-		}
-
-		if err := bgSync.start(); err != nil {
-			return err
-		}
-	}
-
+	//if r.options.backGroundSync {
+	//	bgSync, err := newSync(r.options.bootstrapServers, r.options.storageTopic, r)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	if err := bgSync.start(); err != nil {
+	//		return err
+	//	}
+	//}
+	//
 	return nil
 }
 

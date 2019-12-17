@@ -10,7 +10,7 @@ package main
 import (
 	"time"
 
-	"github.com/pickme-go/log"
+	"github.com/pickme-go/log/v2"
 	schemaregistry "github.com/pickme-go/schema-registry"
 )
 

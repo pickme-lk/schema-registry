@@ -27,8 +27,8 @@ type Encoder struct {
 func NewEncoder(reg *Registry, subject *Subject) (*Encoder, error) {
 	codec, err := goavro.NewCodec(subject.Schema)
 	if err != nil {
-		reg.logger.Error(`schema-registry.encoder`, fmt.Sprintf(`cannot init encoder due to codec failed due to %+v`, err))
-		return nil, errors.WithPrevious(err, `schema-registry.encoder`, fmt.Sprintf(`cannot init encoder due to codec failed due to %+v`, err))
+		reg.logger.Error(fmt.Sprintf(`cannot init encoder due to codec failed due to %+v`, err))
+		return nil, errors.WithPrevious(err, fmt.Sprintf(`cannot init encoder due to codec failed due to %+v`, err))
 	}
 
 	return &Encoder{
@@ -46,14 +46,14 @@ func NewEncoder(reg *Registry, subject *Subject) (*Encoder, error) {
 func (s *Encoder) Encode(data interface{}) ([]byte, error) {
 	byt, err := json.Marshal(data)
 	if err != nil {
-		s.registry.logger.Error(`schema-registry.encoder`, fmt.Sprintf(`json marshal failed due to %+v`, err))
-		return nil, errors.WithPrevious(err, `schema-registry.encoder`, fmt.Sprintf(`json marshal failed due to %+v`, err))
+		s.registry.logger.Error(fmt.Sprintf(`json marshal failed due to %+v`, err))
+		return nil, errors.WithPrevious(err, fmt.Sprintf(`json marshal failed due to %+v`, err))
 	}
 
 	native, _, err := s.codec.NativeFromTextual(byt)
 	if err != nil {
-		s.registry.logger.Error(`schema-registry.encoder`, fmt.Sprintf(`native from textual failed due to %+v`, err))
-		return nil, errors.WithPrevious(err, `schema-registry.encoder`, fmt.Sprintf(`native from textual failed due to %+v`, err))
+		s.registry.logger.Error(fmt.Sprintf(`native from textual failed due to %+v`, err))
+		return nil, errors.WithPrevious(err, fmt.Sprintf(`native from textual failed due to %+v`, err))
 	}
 
 	magic := s.encodePrefix(s.subject.Id)
@@ -64,31 +64,31 @@ func (s *Encoder) Encode(data interface{}) ([]byte, error) {
 // Decode returns the decoded go interface of avro encoded message and error if its unable to decode
 func (s *Encoder) Decode(data []byte) (interface{}, error) {
 	if len(data) < 5 {
-		s.registry.logger.Error(`schema-registry.encoder`, `message length is zero`)
-		return nil, errors.New(`schema-registry.encoder`, `message length is zero`)
+		s.registry.logger.Error(`message length is zero`)
+		return nil, errors.New(`message length is zero`)
 	}
 
 	schemaID := s.decodePrefix(data)
 
 	encoder, ok := s.registry.idMap[schemaID]
 	if !ok {
-		return nil, errors.New(`schema-registry.encoder`, fmt.Sprintf(`schema id [%d] dose not registred`, schemaID))
+		return nil, errors.New(fmt.Sprintf(`schema id [%d] dose not registred`, schemaID))
 	}
 
 	native, _, err := encoder.codec.NativeFromBinary(data[5:])
 	if err != nil {
-		s.registry.logger.Error(`schema-registry.encoder`, fmt.Sprintf(`native from binary failed due to %+v`, err))
-		return nil, errors.WithPrevious(err, `schema-registry.encoder`, fmt.Sprintf(`schema id [%d] dose not registred`, schemaID))
+		s.registry.logger.Error(fmt.Sprintf(`native from binary failed due to %+v`, err))
+		return nil, errors.WithPrevious(err, fmt.Sprintf(`schema id [%d] dose not registred`, schemaID))
 	}
 
 	byt, err := encoder.codec.TextualFromNative(nil, native)
 	if err != nil {
-		s.registry.logger.Error(`schema-registry.encoder`, fmt.Sprintf(`textual from native failed due to %+v`, err))
-		return nil, errors.WithPrevious(err, `schema-registry.encoder`, fmt.Sprintf(`textual from native failed due to %+v`, err))
+		s.registry.logger.Error(fmt.Sprintf(`textual from native failed due to %+v`, err))
+		return nil, errors.WithPrevious(err, fmt.Sprintf(`textual from native failed due to %+v`, err))
 	}
 
 	if encoder.subject.JsonDecoder == nil {
-		return nil, errors.New(`schema-registry.encoder`, fmt.Sprintf(`json decoder does not exist for schema %d`, schemaID))
+		return nil, errors.New(fmt.Sprintf(`json decoder does not exist for schema %d`, schemaID))
 	}
 
 	return encoder.subject.JsonDecoder(byt)
