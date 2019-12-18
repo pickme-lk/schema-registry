@@ -222,13 +222,8 @@ func (r *Registry) WithLatestSchema(subject string) *Encoder {
 	return versions[v]
 }
 
-/*func (r *Registry) GenericEncoder(subject string, version int) *GenericEncoder {
-	s, ok := r.schemas[subject][version]
-	if !ok {
-		log.Fatal(log.WithPrefix(`avro.registry`, fmt.Sprintf(`unregistred subject [%s]`, subject)))
-	}
-
+func (r *Registry) GenericEncoder() *GenericEncoder {
 	return &GenericEncoder{
-		subject: s,
+		registry: r,
 	}
-}*/
+}

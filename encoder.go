@@ -44,46 +44,65 @@ func NewEncoder(reg *Registry, subject *Subject) (*Encoder, error) {
 //	╚════════════════════╧════════════════════╧══════════════════════╝
 //
 func (s *Encoder) Encode(data interface{}) ([]byte, error) {
-	byt, err := json.Marshal(data)
-	if err != nil {
-		s.registry.logger.Error(fmt.Sprintf(`json marshal failed due to %+v`, err))
-		return nil, errors.WithPrevious(err, fmt.Sprintf(`json marshal failed due to %+v`, err))
-	}
-
-	native, _, err := s.codec.NativeFromTextual(byt)
-	if err != nil {
-		s.registry.logger.Error(fmt.Sprintf(`native from textual failed due to %+v`, err))
-		return nil, errors.WithPrevious(err, fmt.Sprintf(`native from textual failed due to %+v`, err))
-	}
-
-	magic := s.encodePrefix(s.subject.Id)
-
-	return s.codec.BinaryFromNative(magic, native)
+	return encode(s.subject.Id, s.codec, data)
 }
 
 // Decode returns the decoded go interface of avro encoded message and error if its unable to decode
 func (s *Encoder) Decode(data []byte) (interface{}, error) {
+	return decode(s.registry.idMap, data)
+}
+
+func encodePrefix(id int) []byte {
+	byt := make([]byte, 5)
+	binary.BigEndian.PutUint32(byt[1:], uint32(id))
+	return byt
+}
+
+func decodePrefix(byt []byte) int {
+	return int(binary.BigEndian.Uint32(byt[1:5]))
+}
+
+//Schema return the subject asociated with the Encoder
+func (s *Encoder) Schema() string {
+	return s.subject.Schema
+}
+
+func encode(subjectId int, codec *goavro.Codec, data interface{}) ([]byte, error) {
+	byt, err := json.Marshal(data)
+	if err != nil {
+		return nil, errors.WithPrevious(err, fmt.Sprintf(`json marshal failed due to %+v`, err))
+	}
+
+	native, _, err := codec.NativeFromTextual(byt)
+	if err != nil {
+		return nil, errors.WithPrevious(err, fmt.Sprintf(`native from textual failed due to %+v`, err))
+	}
+
+	magic := encodePrefix(subjectId)
+
+	return codec.BinaryFromNative(magic, native)
+}
+
+// decode returns the decoded go interface of avro encoded message and error if its unable to decode
+func decode(encoders map[int]*Encoder, data []byte) (interface{}, error) {
 	if len(data) < 5 {
-		s.registry.logger.Error(`message length is zero`)
 		return nil, errors.New(`message length is zero`)
 	}
 
-	schemaID := s.decodePrefix(data)
+	schemaID := decodePrefix(data)
 
-	encoder, ok := s.registry.idMap[schemaID]
+	encoder, ok := encoders[schemaID]
 	if !ok {
 		return nil, errors.New(fmt.Sprintf(`schema id [%d] dose not registred`, schemaID))
 	}
 
 	native, _, err := encoder.codec.NativeFromBinary(data[5:])
 	if err != nil {
-		s.registry.logger.Error(fmt.Sprintf(`native from binary failed due to %+v`, err))
 		return nil, errors.WithPrevious(err, fmt.Sprintf(`schema id [%d] dose not registred`, schemaID))
 	}
 
 	byt, err := encoder.codec.TextualFromNative(nil, native)
 	if err != nil {
-		s.registry.logger.Error(fmt.Sprintf(`textual from native failed due to %+v`, err))
 		return nil, errors.WithPrevious(err, fmt.Sprintf(`textual from native failed due to %+v`, err))
 	}
 
@@ -92,19 +111,4 @@ func (s *Encoder) Decode(data []byte) (interface{}, error) {
 	}
 
 	return encoder.subject.JsonDecoder(byt)
-}
-
-func (s *Encoder) encodePrefix(id int) []byte {
-	byt := make([]byte, 5)
-	binary.BigEndian.PutUint32(byt[1:], uint32(id))
-	return byt
-}
-
-func (s *Encoder) decodePrefix(byt []byte) int {
-	return int(binary.BigEndian.Uint32(byt[1:5]))
-}
-
-//Schema return the subject asociated with the Encoder
-func (s *Encoder) Schema() string {
-	return s.subject.Schema
 }
